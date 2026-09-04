@@ -7,6 +7,7 @@ import { DeviceTracker as ApplDeviceTracker } from '../applDevice/client/DeviceT
 import { ParamsBase } from '../../types/ParamsBase';
 import { HostItem } from '../../types/Configuration';
 import { ChannelCode } from '../../common/ChannelCode';
+import Util from '../Util';
 
 const TAG = '[HostTracker]';
 
@@ -89,16 +90,48 @@ export class HostTracker extends ManagerClient<ParamsBase, HostTrackerEvents> {
     }
 
     private startTracker(hostItem: HostItem): void {
+        const trackerParams = {
+            ...hostItem,
+            mobile: HostTracker.isMobileMode(),
+            debug: HostTracker.isDebugMode(),
+        };
         switch (hostItem.type) {
             case 'android':
-                this.trackers.push(GoogDeviceTracker.start(hostItem));
+                this.trackers.push(GoogDeviceTracker.start(trackerParams));
                 break;
             case 'ios':
-                this.trackers.push(ApplDeviceTracker.start(hostItem));
+                this.trackers.push(ApplDeviceTracker.start(trackerParams));
                 break;
             default:
                 console.warn(TAG, `Unsupported host type: "${hostItem.type}"`);
         }
+    }
+
+    private static isMobileMode(): boolean {
+        const configured = HostTracker.getUrlFlag('mobile');
+        if (configured !== null) {
+            return Util.parseBooleanEnv(configured) === true;
+        }
+        const userAgent = navigator.userAgent || '';
+        const mobileUserAgent = /Android|iPhone|iPad|iPod|Mobile/i.test(userAgent);
+        const coarsePointer = window.matchMedia?.('(pointer: coarse)').matches || false;
+        const touchDevice = navigator.maxTouchPoints > 0 && coarsePointer;
+        return mobileUserAgent || touchDevice;
+    }
+
+    private static isDebugMode(): boolean {
+        return HostTracker.isUrlFlagEnabled('debug');
+    }
+
+    private static isUrlFlagEnabled(name: string): boolean {
+        const value = HostTracker.getUrlFlag(name);
+        return value !== null && Util.parseBooleanEnv(value) === true;
+    }
+
+    private static getUrlFlag(name: string): string | null {
+        const hash = new URLSearchParams(location.hash.replace(/^#!/, ''));
+        const search = new URLSearchParams(location.search);
+        return hash.get(name) ?? search.get(name);
     }
 
     protected onSocketOpen(): void {

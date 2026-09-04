@@ -22,6 +22,13 @@ export type DisplayCombinedInfo = {
     connectionCount: number;
 };
 
+export type ControlMessageSendStatus = 'sent' | 'queued' | 'failed';
+
+export interface ControlMessageSendResult {
+    status: ControlMessageSendStatus;
+    error?: string;
+}
+
 interface StreamReceiverEvents {
     video: ArrayBuffer;
     deviceMessage: DeviceMessage;
@@ -158,12 +165,27 @@ export class StreamReceiver<P extends ParamsStream> extends ManagerClient<Params
         }
     }
 
-    public sendEvent(event: ControlMessage): void {
+    public sendEvent(event: ControlMessage): ControlMessageSendResult {
         if (this.ws && this.ws.readyState === this.ws.OPEN) {
-            this.ws.send(event.toBuffer());
-        } else {
-            this.events.push(event);
+            let data: Buffer;
+            try {
+                data = event.toBuffer();
+            } catch (error: unknown) {
+                const message = error instanceof Error ? error.message : String(error);
+                console.error(TAG, 'Failed to serialize control event', error);
+                return { status: 'failed', error: `serialize:${message}` };
+            }
+            try {
+                this.ws.send(data);
+                return { status: 'sent' };
+            } catch (error: unknown) {
+                const message = error instanceof Error ? error.message : String(error);
+                console.error(TAG, 'Failed to send control event', error);
+                return { status: 'failed', error: `socket:${message}` };
+            }
         }
+        this.events.push(event);
+        return { status: 'queued' };
     }
 
     public stop(): void {

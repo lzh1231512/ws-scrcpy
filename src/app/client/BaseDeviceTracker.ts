@@ -86,7 +86,7 @@ export abstract class BaseDeviceTracker<DD extends BaseDeviceDescriptor, TE exte
         super(params);
         this.elementId = `tracker_instance${++BaseDeviceTracker.instanceId}`;
         this.trackerName = `Unavailable. Host: ${params.hostname}, type: ${params.type}`;
-        this.setBodyClass('list');
+        this.setBodyClass(params.mobile ? 'list mobile' : 'list');
         this.setTitle();
     }
 

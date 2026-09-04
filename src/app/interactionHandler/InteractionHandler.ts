@@ -261,6 +261,14 @@ export abstract class InteractionHandler {
         };
     }
 
+    protected isTouchTarget(target: EventTarget | null): boolean {
+        if (target === this.tag) {
+            return true;
+        }
+        const parent = this.tag.parentElement;
+        return !!parent && (target === parent || (target instanceof Node && parent.contains(target)));
+    }
+
     private static validateMessage(
         originalEvent: MiniMouseEvent | TouchEvent,
         message: TouchControlMessage,
@@ -288,7 +296,7 @@ export abstract class InteractionHandler {
             if (!previous) {
                 if (
                     (originalEvent instanceof MouseEvent && originalEvent.buttons) ||
-                    (window['TouchEvent'] && originalEvent instanceof TouchEvent)
+                    originalEvent.type.startsWith('touch')
                 ) {
                     console.warn(logPrefix, 'Received ACTION_MOVE while there are no DOWN stored');
                     const emulated = InteractionHandler.createEmulatedMessage(MotionEvent.ACTION_DOWN, message);
@@ -464,7 +472,7 @@ export abstract class InteractionHandler {
             for (let i = 0, l = touches.length; i < l; i++) {
                 const touch = touches[i];
                 const pointerId = InteractionHandler.getPointerId(e.type, touch.identifier);
-                if (touch.target !== this.tag) {
+                if (!this.isTouchTarget(touch.target) && !this.isTouchTarget(e.target)) {
                     continue;
                 }
                 const previous = storage.get(pointerId);
@@ -473,7 +481,7 @@ export abstract class InteractionHandler {
                     clientY: touch.clientY,
                     type: e.type,
                     buttons: MotionEvent.BUTTON_PRIMARY,
-                    target: e.target,
+                    target: this.tag,
                 };
                 const event = InteractionHandler.buildTouchOnClient(item, screenInfo);
                 if (event) {
@@ -482,7 +490,7 @@ export abstract class InteractionHandler {
                     if (action === MotionEvent.ACTION_UP) {
                         pressure = 0;
                     } else if (typeof touch.force === 'number') {
-                        pressure = touch.force;
+                        pressure = Number.isFinite(touch.force) ? Math.min(Math.max(touch.force, 0), 1) : 1;
                     }
                     if (!invalid) {
                         const message = new TouchControlMessage(action, pointerId, position, pressure, buttons);

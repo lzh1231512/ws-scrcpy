@@ -219,7 +219,44 @@ environment variable.
 If you want to have another pathname than "/" you can specify it in the
 `WS_SCRCPY_PATHNAME` environment variable.
 
+### Mobile stream prototype
+
+The Android device list automatically detects mobile environments and applies
+the mobile layout. `mobile=1` remains available as an explicit stream/list
+override. Mobile stream mode hides the desktop toolbar and uses draggable
+floating tools. The mobile tools include Android navigation keys, a floating
+Back button, remote text input, remote clipboard read/write, copy-to-browser,
+and the browser Fullscreen API. Text injection follows the existing scrcpy
+behavior and is limited to ASCII.
+
+When `GO` is selected in Configure stream, the complete stream configuration is
+saved in browser local storage, including the selected device and interface,
+player, display, fit-to-screen state, video limits, codec options, and encoder.
+When a saved configuration exists, the device list shows `GO to last stream`
+below the list. It opens the stream directly with the saved configuration.
+
 Configuration file format: [Configuration.d.ts](/src/types/Configuration.d.ts).
+
+For touch troubleshooting, append `debug=1` to the mobile stream URL. The
+diagnostics are collected during a gesture and shown in one alert after
+`touchend` or `touchcancel`, so the alert does not interrupt the gesture. For
+example:
+
+```text
+http://localhost:8000/#!action=stream&udid=DEVICE_ID&mobile=1&debug=1
+```
+
+The alert reports browser touch targets, generated control messages, active
+pointers, canvas dimensions, coordinates, pressure, WebSocket connection
+state, and the send status for every control message. `sent=action:x,y/widthxheight:p=pressure:sent`
+means `WebSocket.send()` was called with those remote coordinates; `queued`
+means the message is waiting for the WebSocket to open. A failure includes
+either `serialize:<error>` or `socket:<error>` to identify where it occurred.
+This is a browser-side send result, not an acknowledgement that Android has
+processed the event.
+`messages=0` with `activePointers=1` on `touchstart` indicates a missing prior
+`touchend`; a target outside the video or an invalid coordinate indicates a
+browser routing/layout problem. Omit `debug=1` during normal use.
 
 Configuration file example: [config.example.yaml](/config.example.yaml).
 

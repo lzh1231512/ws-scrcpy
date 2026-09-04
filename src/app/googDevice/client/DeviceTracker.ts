@@ -15,6 +15,7 @@ import { ParamsDeviceTracker } from '../../../types/ParamsDeviceTracker';
 import { HostItem } from '../../../types/Configuration';
 import { ChannelCode } from '../../../common/ChannelCode';
 import { Tool } from '../../client/Tool';
+import { LastStreamConfiguration } from './LastStreamConfiguration';
 
 type Field = keyof GoogDeviceDescriptor | ((descriptor: GoogDeviceDescriptor) => string);
 type DescriptionColumn = { title: string; field: Field };
@@ -36,6 +37,11 @@ export class DeviceTracker extends BaseDeviceTracker<GoogDeviceDescriptor, never
     private static instancesByUrl: Map<string, DeviceTracker> = new Map();
     protected static tools: Set<Tool> = new Set();
     protected tableId = 'goog_device_list';
+
+    protected buildDeviceTable(): void {
+        super.buildDeviceTable();
+        this.updateLastStreamButton();
+    }
 
     public static start(hostItem: HostItem): DeviceTracker {
         const url = this.buildUrlForTracker(hostItem).toString();
@@ -113,6 +119,8 @@ export class DeviceTracker extends BaseDeviceTracker<GoogDeviceDescriptor, never
                     player: decodeURIComponent(playerCodeName),
                     ws: url,
                     fitToScreen: true,
+                    ...(this.params.mobile ? { mobile: 1 } : {}),
+                    ...(this.params.debug ? { debug: 1 } : {}),
                 },
                 decodeURIComponent(playerFullName),
                 this.params,
@@ -343,6 +351,32 @@ export class DeviceTracker extends BaseDeviceTracker<GoogDeviceDescriptor, never
                 udid: device.udid,
                 store: false,
             });
+        }
+    }
+
+    private updateLastStreamButton(): void {
+        const lastConfiguration = LastStreamConfiguration.load();
+        const devices = document.getElementById(BaseDeviceTracker.HOLDER_ELEMENT_ID);
+        if (!devices) {
+            return;
+        }
+        const existing = document.getElementById('last_stream_action');
+        if (!lastConfiguration) {
+            existing?.remove();
+            return;
+        }
+        const link = existing || document.createElement('a');
+        link.id = 'last_stream_action';
+        link.className = 'last-stream-action';
+        link.innerText = 'GO to last stream';
+        link.title = 'Open the last stream configuration';
+        link.setAttribute('rel', 'noopener noreferrer');
+        link.setAttribute('target', '_blank');
+        const url = new URL(location.href);
+        url.hash = '#!action=stream&last=1';
+        link.setAttribute('href', url.toString());
+        if (!existing) {
+            devices.appendChild(link);
         }
     }
 

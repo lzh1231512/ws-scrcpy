@@ -5,7 +5,7 @@ import { GoogToolBox } from '../toolbox/GoogToolBox';
 import VideoSettings from '../../VideoSettings';
 import Size from '../../Size';
 import { ControlMessage } from '../../controlMessage/ControlMessage';
-import { ClientsStats, DisplayCombinedInfo } from '../../client/StreamReceiver';
+import { ClientsStats, ControlMessageSendResult, DisplayCombinedInfo } from '../../client/StreamReceiver';
 import { CommandControlMessage } from '../../controlMessage/CommandControlMessage';
 import Util from '../../Util';
 import FilePushHandler from '../filePush/FilePushHandler';
@@ -30,6 +30,7 @@ import { ACTION } from '../../../common/Action';
 import { StreamReceiverScrcpy } from './StreamReceiverScrcpy';
 import { ParamsDeviceTracker } from '../../../types/ParamsDeviceTracker';
 import { ScrcpyFilePushStream } from '../filePush/ScrcpyFilePushStream';
+import MobileFloatingTools from '../toolbox/MobileFloatingTools';
 
 type StartParams = {
     udid: string;
@@ -58,6 +59,7 @@ export class StreamClientScrcpy
     private moreBox?: GoogMoreBox;
     private player?: BasePlayer;
     private filePushHandler?: FilePushHandler;
+    private mobileTools?: MobileFloatingTools;
     private fitToScreen?: boolean;
     private readonly streamReceiver: StreamReceiverScrcpy;
 
@@ -148,8 +150,14 @@ export class StreamClientScrcpy
         if (typeof fitToScreen !== 'boolean') {
             fitToScreen = this.params.fitToScreen;
         }
-        this.startStream({ udid, player, playerName, fitToScreen, videoSettings });
-        this.setBodyClass('stream');
+        this.startStream({
+            udid,
+            player,
+            playerName,
+            fitToScreen,
+            videoSettings: videoSettings ?? this.params.videoSettings,
+        });
+        this.setBodyClass(this.params.mobile ? 'stream mobile' : 'stream');
     }
 
     public static parseParameters(params: URLSearchParams): ParamsStreamScrcpy {
@@ -166,12 +174,16 @@ export class StreamClientScrcpy
             ws: Util.parseString(params, 'ws', true),
             captureKeyboard: Util.parseBoolean(params, 'captureKeyboard', false),
             fitToScreen: params.has('fitToScreen') ? Util.parseBoolean(params, 'fitToScreen') : undefined,
+            mobile: params.has('mobile') ? Util.parseBoolean(params, 'mobile') : undefined,
+            debug: params.has('debug') ? Util.parseBoolean(params, 'debug') : undefined,
         };
     }
 
     public OnDeviceMessage = (message: DeviceMessage): void => {
         if (this.moreBox) {
             this.moreBox.OnDeviceMessage(message);
+        } else {
+            this.mobileTools?.onDeviceMessage(message);
         }
     };
 
@@ -267,6 +279,8 @@ export class StreamClientScrcpy
         this.filePushHandler = undefined;
         this.touchHandler?.release();
         this.touchHandler = undefined;
+        this.mobileTools?.release();
+        this.mobileTools = undefined;
         window.removeEventListener('resize', this.onWindowResize);
         if (this.resizeTimeoutId !== undefined) {
             clearTimeout(this.resizeTimeoutId);
@@ -310,37 +324,48 @@ export class StreamClientScrcpy
             if (ev && ev instanceof Event && ev.type === 'error') {
                 console.error(TAG, ev);
             }
-            let parent;
-            parent = deviceView.parentElement;
+            const parent = deviceView.parentElement;
             if (parent) {
                 parent.removeChild(deviceView);
             }
-            parent = moreBox.parentElement;
-            if (parent) {
-                parent.removeChild(moreBox);
-            }
+            this.mobileTools?.release();
+            this.mobileTools = undefined;
             this.streamReceiver.stop();
             if (this.player) {
                 this.player.stop();
             }
         };
 
-        const googMoreBox = (this.moreBox = new GoogMoreBox(udid, player, this));
-        const moreBox = googMoreBox.getHolderElement();
-        googMoreBox.setOnStop(stop);
-        const googToolBox = GoogToolBox.createToolBox(udid, player, this, moreBox, {
-            captureKeyboard: this.params.captureKeyboard,
-        });
-        this.controlButtons = googToolBox.getHolderElement();
-        deviceView.appendChild(this.controlButtons);
+        const googMoreBox = this.params.mobile ? undefined : (this.moreBox = new GoogMoreBox(udid, player, this));
+        const moreBox = googMoreBox?.getHolderElement();
+        if (googMoreBox && moreBox) {
+            googMoreBox.setOnStop(stop);
+        }
+        const googToolBox = this.params.mobile
+            ? undefined
+            : GoogToolBox.createToolBox(udid, player, this, moreBox, {
+                  captureKeyboard: this.params.captureKeyboard,
+              });
+        this.controlButtons = googToolBox?.getHolderElement();
+        if (this.controlButtons) {
+            deviceView.appendChild(this.controlButtons);
+        }
         const video = document.createElement('div');
         video.className = 'video';
         deviceView.appendChild(video);
-        deviceView.appendChild(moreBox);
+        if (moreBox) {
+            deviceView.appendChild(moreBox);
+        }
         player.setParent(video);
         player.pause();
 
         document.body.appendChild(deviceView);
+        if (this.params.mobile) {
+            this.mobileTools = new MobileFloatingTools(deviceView, {
+                sendMessage: (message: ControlMessage) => this.sendMessage(message),
+                disconnect: stop,
+            });
+        }
         if (fitToScreen) {
             const newBounds = this.getMaxSize();
             if (newBounds) {
@@ -395,8 +420,12 @@ export class StreamClientScrcpy
         this.sendNewVideoSetting(updated);
     };
 
-    public sendMessage(message: ControlMessage): void {
-        this.streamReceiver.sendEvent(message);
+    public sendMessage(message: ControlMessage): ControlMessageSendResult {
+        return this.streamReceiver.sendEvent(message);
+    }
+
+    public isStreamConnected(): boolean {
+        return this.streamReceiver.hasConnection();
     }
 
     public getDeviceName(): string {
@@ -429,11 +458,9 @@ export class StreamClientScrcpy
     }
 
     public getMaxSize(): Size | undefined {
-        if (!this.controlButtons) {
-            return;
-        }
         const body = document.body;
-        const width = (body.clientWidth - this.controlButtons.clientWidth) & ~15;
+        const controlWidth = this.controlButtons?.clientWidth || 0;
+        const width = (body.clientWidth - controlWidth) & ~15;
         const height = body.clientHeight & ~15;
         return new Size(width, height);
     }
@@ -442,7 +469,7 @@ export class StreamClientScrcpy
         if (this.touchHandler) {
             return;
         }
-        this.touchHandler = new FeaturedInteractionHandler(player, this);
+        this.touchHandler = new FeaturedInteractionHandler(player, this, this.params.debug);
     }
 
     private applyNewVideoSettings(videoSettings: VideoSettings, saveToStorage: boolean): void {
@@ -476,6 +503,8 @@ export class StreamClientScrcpy
                     ${Attribute.PORT}="${params.port}"
                     ${Attribute.PATHNAME}="${params.pathname}"
                     ${Attribute.USE_PROXY}="${params.useProxy}"
+                    ${Attribute.MOBILE}="${!!params.mobile}"
+                    ${Attribute.DEBUG}="${!!params.debug}"
                     id="${configureButtonId}"
                     class="active action-button"
                 >
@@ -498,6 +527,8 @@ export class StreamClientScrcpy
         const port = Util.parseIntEnv(button.getAttribute(Attribute.PORT) || undefined);
         const pathname = Util.parseStringEnv(button.getAttribute(Attribute.PATHNAME) || undefined) || '';
         const useProxy = Util.parseBooleanEnv(button.getAttribute(Attribute.USE_PROXY) || undefined);
+        const mobile = Util.parseBooleanEnv(button.getAttribute(Attribute.MOBILE) || undefined);
+        const debug = Util.parseBooleanEnv(button.getAttribute(Attribute.DEBUG) || undefined);
         if (!udid) {
             throw Error(`Invalid udid value: "${udid}"`);
         }
@@ -538,6 +569,8 @@ export class StreamClientScrcpy
             port,
             pathname,
             useProxy,
+            mobile,
+            debug,
         };
         const dialog = new ConfigureScrcpy(tracker, descriptor, options);
         dialog.on('closed', StreamClientScrcpy.onConfigureDialogClosed);

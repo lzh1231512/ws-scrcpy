@@ -15,6 +15,7 @@ import { Attribute } from '../../Attribute';
 import { StreamReceiverScrcpy } from './StreamReceiverScrcpy';
 import { ParamsStreamScrcpy } from '../../../types/ParamsStreamScrcpy';
 import { BaseClient } from '../../client/BaseClient';
+import { LastStreamConfiguration } from './LastStreamConfiguration';
 
 interface ConfigureScrcpyEvents {
     closed: { dialog: ConfigureScrcpy; result: boolean };
@@ -554,7 +555,7 @@ export class ConfigureScrcpy extends BaseClient<ParamsStreamScrcpy, ConfigureScr
         // cancelButton.innerText = 'Cancel';
         // cancelButton.addEventListener('click', this.cancel);
         const okButton = (this.okButton = document.createElement('button'));
-        okButton.innerText = 'Open';
+        okButton.innerText = 'GO';
         okButton.disabled = true;
         okButton.addEventListener('click', this.openStream);
         dialogFooter.appendChild(okButton);
@@ -634,8 +635,10 @@ export class ConfigureScrcpy extends BaseClient<ParamsStreamScrcpy, ConfigureScr
         const params: ParamsStreamScrcpy = {
             ...this.params,
             udid: this.udid,
+            player: this.playerName,
             fitToScreen,
         };
+        LastStreamConfiguration.save(params, videoSettings);
         StreamClientScrcpy.start(params, this.streamReceiver, player, fitToScreen, videoSettings);
         this.streamReceiver.triggerInitialInfoEvents();
     };

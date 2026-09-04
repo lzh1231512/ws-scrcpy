@@ -2,6 +2,7 @@ import '../style/app.css';
 import { StreamClientScrcpy } from './googDevice/client/StreamClientScrcpy';
 import { HostTracker } from './client/HostTracker';
 import { Tool } from './client/Tool';
+import { LastStreamConfiguration } from './googDevice/client/LastStreamConfiguration';
 
 window.onload = async function (): Promise<void> {
     const hash = location.hash.replace(/^#!/, '');
@@ -28,9 +29,18 @@ window.onload = async function (): Promise<void> {
     StreamClientScrcpy.registerPlayer(WebCodecsPlayer);
     /// #endif
 
-    if (action === StreamClientScrcpy.ACTION && typeof parsedQuery.get('udid') === 'string') {
-        StreamClientScrcpy.start(parsedQuery);
-        return;
+    if (action === StreamClientScrcpy.ACTION) {
+        if (typeof parsedQuery.get('udid') === 'string') {
+            StreamClientScrcpy.start(parsedQuery);
+            return;
+        }
+        if (parsedQuery.get('last') === '1') {
+            const lastConfiguration = LastStreamConfiguration.load();
+            if (lastConfiguration) {
+                StreamClientScrcpy.start(lastConfiguration);
+                return;
+            }
+        }
     }
 
     /// #if INCLUDE_APPL

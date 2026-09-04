@@ -233,3 +233,144 @@ body.list #device_list_menu {
     font-size: larger;
     font-weight: bolder;
 }
+
+#devices .last-stream-action {
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    width: calc(100% - 40px);
+    margin: 12px 20px 0;
+    padding: 8px 12px;
+    border: 1px solid var(--device-border-color);
+    border-radius: 8px;
+    color: var(--button-text-color);
+    background-color: var(--device-list-default-color);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+#devices .last-stream-action:hover {
+    background-color: var(--device-list-hover-color);
+}
+
+body.list.mobile {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+}
+
+body.list.mobile #devices {
+    box-sizing: border-box;
+    height: 100%;
+    padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+        max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+    background-color: var(--device-list-stripe-color);
+}
+
+body.list.mobile #devices .device-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    font-family: inherit;
+    font-size: 1rem;
+}
+
+body.list.mobile #devices .device-list div.device,
+body.list.mobile #devices .device-list div.device:nth-child(2n),
+body.list.mobile #devices .device-list div.device:nth-child(2n + 1) {
+    box-sizing: border-box;
+    padding: 16px;
+    border: 1px solid var(--device-border-color);
+    border-radius: 12px;
+    background-color: var(--device-list-default-color);
+    box-shadow: 0 2px 8px hsl(0 0% 0% / 8%);
+}
+
+body.list.mobile #devices .device-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 5px 12px;
+    align-items: center;
+}
+
+body.list.mobile #devices .device-header div {
+    display: block;
+    min-width: 0;
+    margin-left: 0;
+}
+
+body.list.mobile #devices .device-name {
+    grid-column: 1;
+    font-size: 125%;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+body.list.mobile #devices .device-serial {
+    grid-column: 1 / -1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+body.list.mobile #devices .device-version {
+    grid-column: 1;
+}
+
+body.list.mobile #devices .device-state {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+}
+
+body.list.mobile #devices .services {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+body.list.mobile #devices .device-list div.desc-block {
+    box-sizing: border-box;
+    margin: 0;
+}
+
+body.list.mobile #devices .device-list div.desc-block.net_interface,
+body.list.mobile #devices .device-list div.desc-block.server_pid {
+    display: none;
+}
+
+body.list.mobile #devices .device-list div.desc-block.stream {
+    flex: 1 1 100%;
+    border: 0;
+}
+
+body.list.mobile #devices .device-list div.desc-block.stream button,
+body.list.mobile #devices .device-list div.desc-block a {
+    min-height: 44px;
+    box-sizing: border-box;
+}
+
+body.list.mobile #devices .device-list div.desc-block.stream button {
+    width: 100%;
+}
+
+body.list.mobile #devices .device-list div.desc-block a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 12px;
+    border: 1px solid var(--device-border-color);
+    border-radius: 8px;
+    text-decoration: none;
+}
+
+body.list.mobile #devices .last-stream-action {
+    width: 100%;
+    margin: 12px 0 0;
+    background-color: var(--device-list-default-color);
+}

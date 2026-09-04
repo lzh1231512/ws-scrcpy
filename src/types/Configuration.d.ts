@@ -9,6 +9,8 @@ export interface HostItem {
     port: number;
     pathname?: string;
     useProxy?: boolean;
+    mobile?: boolean;
+    debug?: boolean;
 }
 
 export interface HostsItem {
